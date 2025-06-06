@@ -1,3 +1,4 @@
+name: Deploy Infrastructure
 
 on:
   workflow_dispatch:
@@ -7,8 +8,8 @@ on:
         required: false
       aws_region:
         description: "AWS Region"
-        required: false
         default: "us-east-1"
+        required: false
 
   workflow_run:
     workflows: ["Build and Push to GHCR"]
@@ -17,6 +18,7 @@ on:
 env:
   TF_DIR: terraform
   DEFAULT_AWS_REGION: us-east-1
+  OIDC_ROLE: github-deploy-role
 
 jobs:
   deploy:
@@ -30,20 +32,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v3
 
-      - name: Set region/account
-        id: set-env
-        run: |
-          echo "AWS_REGION=${{ github.event.inputs.aws_region || env.DEFAULT_AWS_REGION }}" >> "$GITHUB_ENV"
-          echo "AWS_ACCOUNT_ID=${{ github.event.inputs.aws_account_id || secrets.AWS_ACCOUNT_ID }}" >> "$GITHUB_ENV"
-
-      - name: Configure AWS credentials
+      - name: Configure AWS credentials via OIDC
         uses: aws-actions/configure-aws-credentials@v4
         with:
-          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/github-deploy-role
           aws-region: ${{ env.AWS_REGION }}
+          role-to-assume: ${{ env.OIDC_ROLE }}
+          role-session-name: github-cd-session
 
       - name: Setup Terraform
-        uses: hashicorp/setup-terraform@v3
+        uses: hashicorp/setup-terraform@v2
         with:
           terraform_version: 1.6.0
 
