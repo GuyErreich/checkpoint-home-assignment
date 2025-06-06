@@ -38,7 +38,7 @@ jobs:
       - name: Build & push API
         working-directory: ${{ matrix.service }}
         env:
-          IMAGE: ghcr.io/${{ steps.vars.outputs.owner }}/api-service:latest
+          IMAGE: ghcr.io/${{ steps.vars.outputs.owner }}/${{ matrix.service }}:latest
         run: |
           docker build -t $IMAGE .
           docker push $IMAGE
