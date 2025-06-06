@@ -1,0 +1,41 @@
+name: Build and Push to GHCR
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "api_service/**"
+      - "ecs_worker/**"
+      - ".github/workflows/ci.yml"
+
+env:
+  GHCR_API_IMAGE: ghcr.io/${{ github.repository_owner }}/api-service:latest
+  GHCR_WORKER_IMAGE: ghcr.io/${{ github.repository_owner }}/worker-service:latest
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Log in to GHCR
+        uses: docker/login-action@v2
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+
+      - name: Build and Push API
+        run: |
+          docker build -t $GHCR_API_IMAGE ./api_service
+          docker push $GHCR_API_IMAGE
+
+      - name: Build and Push Worker
+        run: |
+          docker build -t $GHCR_WORKER_IMAGE ./ecs_worker
+          docker push $GHCR_WORKER_IMAGE

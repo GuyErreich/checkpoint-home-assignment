@@ -1,0 +1,57 @@
+name: Deploy Terraform Infrastructure
+
+on:
+  workflow_run:
+    workflows: ["Build and Push Docker Images"]
+    types: [completed]
+
+  workflow_dispatch:
+    inputs:
+      aws_account_id:
+        description: "AWS Account ID (optional override)"
+        required: false
+      aws_region:
+        description: "AWS Region"
+        required: false
+        default: "us-east-1"
+
+env:
+  TF_DIR: terraform
+  DEFAULT_AWS_REGION: us-east-1
+
+jobs:
+  deploy:
+    if: ${{ github.event.workflow_run.conclusion == 'success' || github.event_name == 'workflow_dispatch' }}
+    runs-on: ubuntu-latest
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v3
+
+      - name: Determine region and account
+        id: context
+        run: |
+          echo "AWS_REGION=${{ github.event.inputs.aws_region || env.DEFAULT_AWS_REGION }}" >> "$GITHUB_ENV"
+          echo "AWS_ACCOUNT_ID=${{ github.event.inputs.aws_account_id || 'REPLACE_DEFAULT_ACCOUNT_ID' }}" >> "$GITHUB_ENV"
+
+      - name: Configure AWS credentials via OIDC
+        uses: aws-actions/configure-aws-credentials@v2
+        with:
+          role-to-assume: arn:aws:iam::${{ env.AWS_ACCOUNT_ID }}:role/github-deploy-role
+          aws-region: ${{ env.AWS_REGION }}
+
+      - name: Setup Terraform
+        uses: hashicorp/setup-terraform@v2
+        with:
+          terraform_version: 1.6.0
+
+      - name: Terraform Init & Apply
+        working-directory: ${{ env.TF_DIR }}
+        run: |
+          terraform init
+          terraform apply -auto-approve \
+            -var="region=${AWS_REGION}" \
+            -var="account_id=${AWS_ACCOUNT_ID}"
