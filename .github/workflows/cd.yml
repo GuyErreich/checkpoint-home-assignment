@@ -8,7 +8,7 @@ on:
 
 env:
   TF_DIR: terraform
-  DEFAULT_AWS_REGION: us-east-1
+  AWS_REGION: us-east-1
   OIDC_ROLE: github-deploy-role
 
 jobs:
