@@ -36,7 +36,7 @@ jobs:
         run: echo "owner=$(echo '${{ github.repository_owner }}' | tr '[:upper:]' '[:lower:]')" >> "$GITHUB_OUTPUT"
 
       - name: Build & push API
-        working-directory: matrix.service
+        working-directory: ${{ matrix.service}}
         env:
           IMAGE: ghcr.io/${{ steps.vars.outputs.owner }}/api-service:latest
         run: |
