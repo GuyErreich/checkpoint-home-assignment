@@ -15,6 +15,49 @@ The infrastructure consists of two main microservices orchestrated through AWS E
 
 ---
 
+## 🎯 Solution Approach & Design Decisions
+
+### **Architectural Philosophy**
+
+This solution follows **modern cloud-native principles** with emphasis on:
+- **Microservices Architecture**: Decoupled services with single responsibilities
+- **Event-Driven Design**: Asynchronous processing through SQS messaging
+- **Infrastructure as Code**: 100% Terraform-managed, version-controlled infrastructure
+- **Security by Design**: Principle of least privilege and encrypted secrets management
+
+### **Key Design Decisions**
+
+**Chosen**: Amazon ECS with EC2 instances
+**Rationale**: 
+- **Cost Control**: Free-tier optimized with predictable costs
+- **Container Flexibility**: Full control over runtime environment
+- **Scaling Granularity**: Fine-tuned auto-scaling based on multiple metrics
+- **Development Familiarity**: Standard containerized deployment patterns
+
+#### **2. Event-Driven Architecture**
+**Pattern**: API Gateway → SQS → Worker Processing
+**Benefits**:
+- **Decoupling**: Services can evolve independently
+- **Resilience**: Built-in retry mechanisms and dead letter queues
+- **Scalability**: Workers scale based on queue depth
+- **Reliability**: At-least-once message delivery guarantees
+
+#### **3. Security-First Approach**
+**Implementation**:
+- **SSM Parameter Store**: Encrypted token management with audit trails
+- **IAM Task Roles**: Service-specific permissions with minimal scope
+- **VPC Security Groups**: Network-level access controls
+- **Container Security**: Non-root execution and read-only filesystems
+
+#### **4. Observability & Monitoring**
+**Strategy**:
+- **CloudWatch Integration**: Container insights and custom metrics
+- **Health Checks**: Multi-layer health validation (ALB + ECS)
+- **Alerting**: Proactive notifications for scaling and health events
+- **Debugging**: ECS Exec enabled for production troubleshooting
+
+---
+
 ## 🎯 Strong Suits & Key Features
 
 
@@ -165,6 +208,144 @@ Both images are **publicly available** and automatically built from their respec
 - **Rolling updates** with zero-downtime deployment
 - **Health check integration** prevents unhealthy deployments
 
+---
+
+## 🚀 How to Run the Solution
+
+### **Prerequisites**
+
+Before deploying the infrastructure, ensure you have:
+
+```bash
+# Required tools
+- AWS CLI v2 (configured with appropriate permissions)
+- Terraform >= 1.0
+- Git
+- Text editor for configuration
+```
+
+### **Step-by-Step Deployment Guide**
+
+#### **1. Environment Setup**
+```bash
+# Clone the repository
+git clone <your-repository-url>
+cd checkpoint-home-assignment-infra
+
+# Verify AWS configuration
+aws sts get-caller-identity
+aws configure list
+```
+
+#### **2. Configure Terraform Variables**
+```bash
+cd terraform
+
+# Create your configuration file
+cp terraform.tfvars.example terraform.tfvars
+
+# Edit configuration (required)
+nano terraform.tfvars
+```
+
+**Required Configuration (`terraform.tfvars`):**
+```hcl
+# General cluster settings
+cluster_name = "devops-cluster"
+region       = "us-east-1"
+
+# API Service Configuration
+container_name_api = "api-service"
+image_url_api      = "ghcr.io/guyerreich/checkpoint-home-assignment-api-ms"
+cpu_api            = 256
+memory_api         = 256
+
+# Worker Service Configuration
+container_name_worker = "worker-service"
+image_url_worker      = "ghcr.io/guyerreich/checkpoint-home-assignment-worker-ms"
+cpu_worker            = 256
+memory_worker         = 256
+
+# Optional: Monitoring & SSH
+enable_monitoring = true
+enable_ssh_access = false
+alert_email = "your-email@example.com"
+
+# Resource Tags
+tags = {
+  Environment = "dev"
+  Owner       = "your-name"
+  Project     = "devops-assignment"
+}
+```
+
+#### **3. Deploy Infrastructure**
+```bash
+# Initialize Terraform
+terraform init
+
+# Review deployment plan
+terraform plan
+
+# Deploy infrastructure (takes 10-15 minutes)
+terraform apply
+
+# Confirm deployment
+terraform output
+```
+
+#### **5. Test the Solution**
+```bash
+# Get the API URL
+API_URL=$(terraform output -raw api_url)
+
+# Get the SSM token
+TOKEN=$(aws ssm get-parameter --name "/api/token" --with-decryption --query 'Parameter.Value' --output text)
+
+# Test the workflow
+curl -X POST ${API_URL}/submit \
+  -H "Content-Type: application/json" \
+  -d "{
+    \"token\": \"${TOKEN}\",
+    \"email_timestream\": \"$(date -u +%Y-%m-%dT%H:%M:%S.%3NZ)\"
+  }"
+
+# Expected response: {"message":"Payload accepted and queued."}
+```
+
+#### **6. Verify Success**
+```bash
+# Check S3 bucket for new objects (confirms end-to-end success)
+aws s3 ls s3://$(terraform output -raw s3_bucket_name)/
+```
+
+### **Troubleshooting Guide**
+
+#### **Common Issues & Solutions**
+
+| Issue | Solution |
+|-------|----------|
+| **Permission Denied** | Ensure AWS user has sufficient IAM permissions |
+| **Resource Limits** | Check AWS service quotas in your region |
+| **Image Pull Errors** | Verify container images are publicly accessible |
+| **Health Check Failures** | Check ECS service logs in CloudWatch |
+| **No S3 Objects** | Verify SQS message processing and worker service logs |
+
+#### **Useful Commands**
+```bash
+# Check ECS service status
+aws ecs describe-services --cluster devops-cluster --services api-service worker-service
+
+# View CloudWatch logs
+aws logs describe-log-groups --log-group-name-prefix "/ecs"
+
+# Monitor SQS queue
+aws sqs get-queue-attributes --queue-url <queue-url> --attribute-names All
+
+# Check infrastructure status
+terraform show
+terraform state list
+```
 ---
 
 ## 🔧 Possible Improvements & Future Enhancements
