@@ -6,10 +6,6 @@ variable "region" {
   type = string
 }
 
-variable "security_group_id" {
-  type = string
-}
-
 variable "tags" {
   type    = map(string)
   default = {}
@@ -48,4 +44,28 @@ variable "cpu_worker" {
 variable "memory_worker" {
   type    = number
   default = 512
+}
+
+variable "alert_email" {
+  type        = string
+  description = "Email address to receive CloudWatch alerts"
+  default     = ""
+}
+
+variable "enable_monitoring" {
+  type        = bool
+  description = "Enable CloudWatch monitoring and alerts"
+  default     = true
+}
+
+variable "project_name" {
+  type        = string
+  description = "Project name used for resource naming and tagging"
+  default     = "devops"
+}
+
+variable "enable_ssh_access" {
+  type        = bool
+  description = "Enable SSH access to ECS instances for debugging (creates local private key file)"
+  default     = true
 }
